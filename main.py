@@ -3,23 +3,31 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from stream_chat import StreamChat
 from fastapi.middleware.cors import CORSMiddleware
+from database import Base, engine
+import models.album
+from routers import album
 
-# Carrega as variáveis do arquivo .env
+
 load_dotenv()
 
 app = FastAPI()
 
+Base.metadata.create_all(bind=engine)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # para teste pode liberar todos, depois restringir
+    allow_origins=["*"],  # Em produção, substitua por domínios específicos
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Roteador dos álbuns e fotos
+app.include_router(album.router)
+
+# Configuração do StreamChat
 API_KEY = os.getenv("STREAM_API_KEY")
 API_SECRET = os.getenv("STREAM_API_SECRET")
-
 client = StreamChat(api_key=API_KEY, api_secret=API_SECRET)
 
 # Usuários fixos
@@ -32,9 +40,10 @@ def criar_usuarios_no_stream():
     for user_id, user_name in USUARIOS_FIXOS.items():
         client.upsert_user({"id": user_id, "name": user_name})
 
-# Chama essa função ao iniciar o app (ou chame em outro endpoint de setup)
+# Chamada ao iniciar o app
 criar_usuarios_no_stream()
 
+# Rota para gerar token do usuário no chat
 @app.get("/token/{user_id}")
 def get_token(user_id: str):
     if user_id not in USUARIOS_FIXOS:
